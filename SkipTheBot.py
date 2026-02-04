@@ -2,12 +2,13 @@ import streamlit as st
 import requests
 import csv
 import os
-from collections import defaultdict
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Concierge AI", page_icon="🎩", layout="wide")
+# "TM" symbol establishes your Common Law Trademark claim
+st.set_page_config(page_title="SkipTheBot™", page_icon="🎩", layout="wide")
 
 # --- SUBSCRIPTION TIERS ---
+# These are the passwords you sell.
 SUBSCRIPTIONS = {
     "boujie": ["Personal Use"],           
     "agent425": ["Realtor", "Personal Use"], 
@@ -40,11 +41,11 @@ def check_login():
 if not check_login():
     st.stop()
 
-# --- LOAD DATABASE (Fixed Caching) ---
+# --- LOAD DATABASE (Crash-Proof Version) ---
 @st.cache_data
 def load_directory():
-    # We use a temporary defaultdict for building
-    directory = defaultdict(lambda: defaultdict(dict))
+    # We use a standard dictionary instead of defaultdict to prevent caching errors
+    directory = {}
     target_file = "targets.csv"
     
     if os.path.exists(target_file):
@@ -52,19 +53,28 @@ def load_directory():
             with open(target_file, "r", encoding="utf-8") as file:
                 reader = csv.DictReader(file)
                 for row in reader:
+                    # Robustness: Skip empty lines
                     if not row["company"]: continue
+                    
                     cat = row["category"].strip()
                     comp = row["company"].strip()
                     opt = row["option"].strip()
+                    
+                    # Manual Dictionary Building (Safe for Caching)
+                    if cat not in directory:
+                        directory[cat] = {}
+                    if comp not in directory[cat]:
+                        directory[cat][comp] = {}
+                    
                     directory[cat][comp][opt] = {
                         "phone": row["phone"].strip(),
                         "prompt": row["prompt"].strip()
                     }
-        except: pass
-        
-    # CRITICAL FIX: Convert defaultdict to a regular dict before returning
-    # This allows Streamlit to cache it without crashing
-    return {k: dict(v) for k, v in directory.items()}
+        except Exception as e:
+            # This print will show up in your Cloud Logs if something breaks
+            print(f"CSV Error: {e}")
+            
+    return directory
 
 FULL_DIRECTORY = load_directory()
 
@@ -79,7 +89,7 @@ with st.sidebar:
         st.rerun()
 
 # --- MAIN INTERFACE ---
-st.title("🎩 Concierge AI")
+st.title("🎩 SkipTheBot™")
 st.markdown("### The AI Agent that waits on hold for you.")
 
 # Only show tabs relevant to user
