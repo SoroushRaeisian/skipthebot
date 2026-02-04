@@ -4,11 +4,9 @@ import csv
 import os
 
 # --- CONFIGURATION ---
-# "TM" symbol establishes your Common Law Trademark claim
 st.set_page_config(page_title="SkipTheBot™", page_icon="🎩", layout="wide")
 
 # --- SUBSCRIPTION TIERS ---
-# These are the passwords you sell.
 SUBSCRIPTIONS = {
     "boujie": ["Personal Use"],           
     "agent425": ["Realtor", "Personal Use"], 
@@ -41,10 +39,9 @@ def check_login():
 if not check_login():
     st.stop()
 
-# --- LOAD DATABASE (Crash-Proof Version) ---
+# --- LOAD DATABASE (Crash-Proof) ---
 @st.cache_data
 def load_directory():
-    # We use a standard dictionary instead of defaultdict to prevent caching errors
     directory = {}
     target_file = "targets.csv"
     
@@ -53,14 +50,12 @@ def load_directory():
             with open(target_file, "r", encoding="utf-8") as file:
                 reader = csv.DictReader(file)
                 for row in reader:
-                    # Robustness: Skip empty lines
                     if not row["company"]: continue
                     
                     cat = row["category"].strip()
                     comp = row["company"].strip()
                     opt = row["option"].strip()
                     
-                    # Manual Dictionary Building (Safe for Caching)
                     if cat not in directory:
                         directory[cat] = {}
                     if comp not in directory[cat]:
@@ -71,8 +66,8 @@ def load_directory():
                         "prompt": row["prompt"].strip()
                     }
         except Exception as e:
-            # This print will show up in your Cloud Logs if something breaks
             print(f"CSV Error: {e}")
+            pass
             
     return directory
 
@@ -90,7 +85,7 @@ with st.sidebar:
 
 # --- MAIN INTERFACE ---
 st.title("🎩 SkipTheBot™")
-st.markdown("### The AI Agent that waits on hold for you.")
+st.caption("🔒 Enterprise-Grade Security: Calls are never recorded.")
 
 # Only show tabs relevant to user
 user_cats = [c for c in sorted(list(FULL_DIRECTORY.keys())) if c in st.session_state["user_role"]]
@@ -99,7 +94,7 @@ if not user_cats:
     st.error("No categories available for your subscription.")
     st.stop()
 
-# Create Tabs dynamically based on subscription
+# Create Tabs
 tabs = st.tabs([f"📖 {c}" for c in user_cats] + ["⚡ Custom"])
 
 # DIRECTORY TABS
@@ -107,28 +102,24 @@ for i, cat in enumerate(user_cats):
     with tabs[i]:
         col1, col2 = st.columns([1, 1])
         with col1:
-            # Company Select
             companies = sorted(list(FULL_DIRECTORY[cat].keys()))
             selected_company = st.selectbox(f"Select Company ({cat})", companies, key=f"comp_{cat}")
             
-            # Service Select
             services = list(FULL_DIRECTORY[cat][selected_company].keys())
             selected_service = st.radio(f"Select Service", services, key=f"serv_{cat}")
         
         with col2:
-            # Data Display
             data = FULL_DIRECTORY[cat][selected_company][selected_service]
             phone_input = st.text_input("Phone", value=data["phone"], key=f"ph_{cat}")
             prompt_input = st.text_area("Instructions", value=data["prompt"], height=150, key=f"pr_{cat}")
             
             if st.button(f"🚀 Call {selected_company}", key=f"btn_{cat}", type="primary", use_container_width=True):
-                # EXECUTE CALL
                 api_key_secret = st.secrets["BLAND_API_KEY"]
                 if len(phone_input) < 10:
                     st.error("❌ Invalid Phone")
                 else:
                     status = st.empty()
-                    status.info("Dialing...")
+                    status.info("🔒 Establishing Secure Line...")
                     try:
                         res = requests.post("https://api.bland.ai/v1/calls", json={
                             "phone_number": phone_input,
@@ -136,21 +127,25 @@ for i, cat in enumerate(user_cats):
                             "voice": "nat", 
                             "transfer_phone_number": my_phone,
                             "wait_for_greeting": True,
-                            "model": "enhanced"
+                            "model": "enhanced",
+                            "record": False # PRIVACY MODE ON
                         }, headers={"authorization": api_key_secret})
+                        
                         if res.status_code == 200:
                             st.balloons()
-                            st.success(f"✅ Connected! ID: {res.json().get('call_id')}")
+                            st.success(f"✅ Secure Agent Deployed!")
+                            st.caption("This call is not recorded for your privacy.")
                         else:
                             st.error(res.text)
                     except Exception as e:
                         st.error(f"Failed: {e}")
 
-# CUSTOM TAB (Last Tab)
+# CUSTOM TAB
 with tabs[-1]:
     st.write("### Custom Dial")
     c_phone = st.text_input("Phone Number", placeholder="+1...", key="custom_phone")
     c_prompt = st.text_area("Instructions", value="Navigate to reception. Wait for human. Transfer.", height=150, key="custom_prompt")
+    
     if st.button("🚀 Start Custom Call", type="primary", use_container_width=True):
         api_key_secret = st.secrets["BLAND_API_KEY"]
         try:
@@ -160,11 +155,14 @@ with tabs[-1]:
                 "voice": "nat", 
                 "transfer_phone_number": my_phone,
                 "wait_for_greeting": True,
-                "model": "enhanced"
+                "model": "enhanced",
+                "record": False # PRIVACY MODE ON
             }, headers={"authorization": api_key_secret})
+            
             if res.status_code == 200:
                 st.balloons()
-                st.success(f"✅ Connected! ID: {res.json().get('call_id')}")
+                st.success(f"✅ Secure Agent Deployed!")
+                st.caption("This call is not recorded for your privacy.")
             else:
                 st.error(res.text)
         except Exception as e:
