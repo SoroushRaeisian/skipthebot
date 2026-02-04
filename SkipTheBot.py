@@ -8,13 +8,12 @@ from collections import defaultdict
 st.set_page_config(page_title="Concierge AI", page_icon="🎩", layout="wide")
 
 # --- SUBSCRIPTION TIERS ---
-# Sell these passwords for different prices
 SUBSCRIPTIONS = {
-    "boujie": ["Personal Use"],           # $29/mo
-    "agent425": ["Realtor", "Personal Use"], # $49/mo
-    "lawyer123": ["Legal", "Personal Use"],   # $99/mo
-    "scrubs206": ["Medical", "Personal Use"], # $199/mo
-    "admin99": ["Personal Use", "Realtor", "Medical", "Legal"] # You
+    "boujie": ["Personal Use"],           
+    "agent425": ["Realtor", "Personal Use"], 
+    "lawyer123": ["Legal", "Personal Use"],   
+    "scrubs206": ["Medical", "Personal Use"], 
+    "admin99": ["Personal Use", "Realtor", "Medical", "Legal"] 
 }
 
 # --- AUTHENTICATION ---
@@ -41,11 +40,13 @@ def check_login():
 if not check_login():
     st.stop()
 
-# --- LOAD DATABASE (Cached for Speed) ---
+# --- LOAD DATABASE (Fixed Caching) ---
 @st.cache_data
 def load_directory():
+    # We use a temporary defaultdict for building
     directory = defaultdict(lambda: defaultdict(dict))
     target_file = "targets.csv"
+    
     if os.path.exists(target_file):
         try:
             with open(target_file, "r", encoding="utf-8") as file:
@@ -60,7 +61,10 @@ def load_directory():
                         "prompt": row["prompt"].strip()
                     }
         except: pass
-    return directory
+        
+    # CRITICAL FIX: Convert defaultdict to a regular dict before returning
+    # This allows Streamlit to cache it without crashing
+    return {k: dict(v) for k, v in directory.items()}
 
 FULL_DIRECTORY = load_directory()
 
